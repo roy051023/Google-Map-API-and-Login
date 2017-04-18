@@ -1,0 +1,158 @@
+<?php session_start(); ?>
+<html>
+<head>
+	<title>Google Map</title>
+	<meta charset="utf-8">
+	<style type="text/css">
+		html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        height: 90%;
+      }
+      #con {
+        display: block; display: none;
+      }
+	</style>
+
+	<script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+	<link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.3/jquery.mobile-1.4.3.min.css" />
+	<link rel="stylesheet" href="http://code.jquery.com/ui/1.9.2/themes/smoothness/jquery-ui.css" />
+	<script src="http://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>
+	<script src="http://code.highcharts.com/highcharts.js"></script>
+
+</head>
+<body>
+	<?php
+		if(!isset($_SESSION['username']))
+			header('Location: index.html');
+	?>
+	<div id="map"></div>
+	<center><div id="btn"><br><a href="logout.php">登出</a></div></center>
+	<div id="con"></div>
+	<script type="text/javascript">
+		var map;
+		var geocoder;
+		var select = "";
+		function initMap(){
+			$.ajax({
+				url:'database_map.php',
+				data:"",
+				dataType:'json',
+				success: getDataSuccess
+			});
+		}
+
+		function getDataSuccess(data){
+			var dataNum = data.length;
+			geocoder = new google.maps.Geocoder();
+			var myLatLng = {lat: 23.7649777, lng: 121.2082397};
+			map = new google.maps.Map(document.getElementById('map'), {
+				zoom: 8,
+    			center: myLatLng
+  			});
+			var ads = [];
+			for(var i = 0;i < dataNum;i++){
+				if($.inArray(data[i][3].toString(),ads) == -1){
+					ads.push(data[i][3].toString());
+					if(parseInt(data[i][1]) == 7105056092)
+						codeAddress(data[i]);
+				}
+			}
+		}
+
+		function initHighchart(){
+			$.ajax({
+				url:'database_map.php',
+				data:"",
+				dataType:'json',
+				success: highchart
+			});
+		}
+
+		function highchart(data){
+			$("#con").empty();
+			var val = [];
+			var stime = [];
+			var dataNum = data.length;
+			var count = 0;
+			for(var i = 0;i<dataNum;i++){
+				if(select == data[i][3].toString()){
+					val.push(parseInt(data[i][2]));
+					stime.push(data[i][4]);
+					count ++;
+				}
+			}
+			$("#con").highcharts({
+					title: {
+						text: select,
+						x: -20 //center
+					},
+					subtitle: {
+						text: count.toString()+"筆資料",
+						x: -20
+					},
+					xAxis: {
+						title: {
+						text: "Time"
+						},
+						categories: stime,
+						labels:{
+							enabled: true,
+						}
+
+					},
+					yAxis: {
+						title: {
+						text: "value"
+						},
+					},
+					series: [
+					{
+						name: "光敏值",
+						data: val,
+						color: "#7cb8ec"
+					}]
+				});
+			$('#con').dialog({autoOpen: true, show:{effect:'drop', direction:'right', duration: 1300}, width: '640', height: '468',resizable: true});
+		}
+
+		function codeAddress(data){
+			geocoder.geocode({'address':data[3].toString()},function(results, status){
+				if(status == google.maps.GeocoderStatus.OK){
+					var marker = new google.maps.Marker({
+						map: map,
+						position: results[0].geometry.location,
+						title: data[3].toString(),
+						animation:google.maps.Animation.DROP
+					});
+
+					marker.addListener('click', function(){
+						var contentString = '<div id="con"></div>';
+						var infowindow = new google.maps.InfoWindow({
+						content: contentString
+						});
+						initHighchart();
+						select = marker.title;
+						//infowindow.open(map,marker);
+					});
+				}
+				else{
+					var timeout = 300
+					if(status == google.maps.GeocoderStatus.OVER_QUERY_LIMIT){
+						setTimeout(function(){codeAddress(data);},timeout);
+					}
+					else{
+						alert("妳資料庫建得很失敗，請重做\n" + "資料 : \"" + data[3].toString() + "\"   無法建立座標");
+					}
+				}
+			});
+
+		}
+	</script>
+	<script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB6PR1lKIVG4NrwY8viE7grthz7Pm7CTYU&signed_in=true&callback=initMap"></script>
+</body>
+</html>
